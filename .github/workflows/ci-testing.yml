@@ -12,9 +12,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------------------
+      # 1) Checkout Testing Platform Repo
+      # ------------------------------
       - name: Checkout Testing Platform Repo
         uses: actions/checkout@v4
 
+      # ------------------------------
+      # 2) Setup Java + Maven
+      # ------------------------------
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
@@ -22,23 +28,35 @@ jobs:
           java-version: "21"
           cache: "maven"
 
+      # ------------------------------
+      # 3) Setup Python
+      # ------------------------------
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # ------------------------------
+      # 4) Clone Target App Repo
+      # ------------------------------
       - name: Clone Target Big Mart Repo
         run: |
           git clone https://github.com/asutosh-2000/Big-Mart-Sales-Prediction.git target-app
           echo "===== Target Repo Files ====="
           ls -la target-app
 
+      # ------------------------------
+      # 5) Install Flask App Dependencies
+      # ------------------------------
       - name: Install Flask App Dependencies
         run: |
           cd target-app
           python -m pip install --upgrade pip
           pip install flask joblib pandas numpy scikit-learn xgboost
 
+      # ------------------------------
+      # 6) Start Flask App (PORT 9457)
+      # ------------------------------
       - name: Start Flask App
         run: |
           cd target-app
@@ -54,6 +72,9 @@ jobs:
           echo "===== Flask Log (After Start) ====="
           cat flask.log || true
 
+      # ------------------------------
+      # 7) Verify Flask App Running (PORT 9457)
+      # ------------------------------
       - name: Verify Flask App
         run: |
           for i in {1..30}; do
@@ -68,31 +89,45 @@ jobs:
 
           echo "===== Running Processes ====="
           ps aux | grep python || true
+
           exit 1
 
-      # ✅ Extra step for Ubuntu chrome stability
+      # ------------------------------
+      # 8) Install Chrome Dependencies (Ubuntu 24.04 FIX)
+      # ------------------------------
       - name: Install Chrome dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libnss3 \
             libxss1 \
-            libasound2 \
+            libasound2t64 \
             libatk-bridge2.0-0 \
             libgtk-3-0 \
             libgbm1
 
+      # ------------------------------
+      # 9) Setup Chrome
+      # ------------------------------
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@v1
 
-      # ✅ IMPORTANT: Headless ON
+      # ------------------------------
+      # 10) Run Selenium Tests (Headless ON)
+      # ------------------------------
       - name: Run Automation Tests
         run: mvn clean test -Dheadless=true
 
+      # ------------------------------
+      # 11) Generate Allure Report
+      # ------------------------------
       - name: Generate Allure Report
         if: always()
         run: mvn allure:report
 
+      # ------------------------------
+      # 12) Upload Allure Report Artifact
+      # ------------------------------
       - name: Upload Allure Report as Artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -100,6 +135,9 @@ jobs:
           name: allure-report
           path: target/site/allure-maven-plugin
 
+      # ------------------------------
+      # 13) Deploy Allure Report to GitHub Pages
+      # ------------------------------
       - name: Deploy Allure Report to GitHub Pages
         if: always()
         uses: peaceiris/actions-gh-pages@v4
