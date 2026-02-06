@@ -10,6 +10,7 @@ on:
 jobs:
   test-and-report:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       # ------------------------------
@@ -60,6 +61,8 @@ jobs:
       - name: Start Flask App
         run: |
           cd target-app
+
+          # Disable debug reloader / ensure single process
           export FLASK_ENV=production
           export PYTHONUNBUFFERED=1
 
@@ -73,11 +76,12 @@ jobs:
           cat flask.log || true
 
       # ------------------------------
-      # 7) Verify Flask App Running
+      # 7) Verify Flask App Running (PORT 9457)
       # ------------------------------
       - name: Verify Flask App
         run: |
-          for i in {1..30}; do
+          echo "===== Checking Flask Health ====="
+          for i in {1..40}; do
             echo "Checking Flask... attempt $i"
             curl -I http://127.0.0.1:9457 && exit 0
             sleep 2
@@ -89,6 +93,10 @@ jobs:
 
           echo "===== Running Processes ====="
           ps aux | grep python || true
+
+          echo "===== Ports Listening ====="
+          ss -ltnp || true
+
           exit 1
 
       # ------------------------------
@@ -105,7 +113,9 @@ jobs:
             libgtk-3-0 \
             libgbm1 \
             fonts-liberation \
-            xdg-utils
+            xdg-utils \
+            unzip \
+            curl
 
       # ------------------------------
       # 9) Setup Chrome
@@ -114,20 +124,38 @@ jobs:
         uses: browser-actions/setup-chrome@v1
 
       # ------------------------------
-      # 10) Run Selenium Tests (Headless ON)
+      # 10) Print Chrome + Driver versions (DEBUG STRONG)
       # ------------------------------
-      - name: Run Automation Tests
-        run: mvn clean test -Dheadless=true
+      - name: Debug Chrome + Driver Version
+        run: |
+          echo "===== Chrome Version ====="
+          google-chrome --version || true
+
+          echo "===== Chromedriver Version ====="
+          chromedriver --version || true
+
+          echo "===== Java Version ====="
+          java -version || true
+
+          echo "===== Maven Version ====="
+          mvn -v || true
 
       # ------------------------------
-      # 11) Generate Allure Report
+      # 11) Run Selenium Tests (Headless ON)
+      # ------------------------------
+      - name: Run Automation Tests
+        run: |
+          mvn clean test -Dheadless=true
+
+      # ------------------------------
+      # 12) Generate Allure Report
       # ------------------------------
       - name: Generate Allure Report
         if: always()
         run: mvn allure:report
 
       # ------------------------------
-      # 12) Upload Allure Report as Artifact
+      # 13) Upload Allure Report as Artifact
       # ------------------------------
       - name: Upload Allure Report as Artifact
         if: always()
@@ -137,7 +165,17 @@ jobs:
           path: target/site/allure-maven-plugin
 
       # ------------------------------
-      # 13) Deploy Allure Report to GitHub Pages
+      # 14) Upload Flask logs + Debug logs (SUPER IMPORTANT)
+      # ------------------------------
+      - name: Upload Flask Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flask-log
+          path: target-app/flask.log
+
+      # ------------------------------
+      # 15) Deploy Allure Report to GitHub Pages
       # ------------------------------
       - name: Deploy Allure Report to GitHub Pages
         if: always()
