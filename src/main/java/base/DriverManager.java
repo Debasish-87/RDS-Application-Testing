@@ -11,22 +11,23 @@ public class DriverManager {
 
     public static void initDriver() {
 
-        if (driver.get() != null) {
-            return;
-        }
+        if (driver.get() != null) return;
 
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
 
-        // Clean Chrome setup
+        // Common args
         options.addArguments("--disable-notifications");
         options.addArguments("--disable-infobars");
         options.addArguments("--incognito");
         options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
 
-        // Headless support (for CI later)
-        if (System.getProperty("headless", "false").equalsIgnoreCase("true")) {
+        // ✅ Auto CI detection
+        boolean isCI = System.getenv("CI") != null;
+        boolean isHeadless = System.getProperty("headless", "false").equalsIgnoreCase("true");
+
+        if (isCI || isHeadless) {
             options.addArguments("--headless=new");
             options.addArguments("--disable-gpu");
             options.addArguments("--disable-dev-shm-usage");
