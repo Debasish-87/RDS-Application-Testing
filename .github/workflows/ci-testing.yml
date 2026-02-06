@@ -2,9 +2,9 @@ name: BSMP Intelligent Testing Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -55,18 +55,23 @@ jobs:
           pip install flask joblib pandas numpy scikit-learn xgboost
 
       # ------------------------------
-      # 6) Start Flask App in Background
+      # 6) Start Flask App (PORT 9457)
       # ------------------------------
       - name: Start Flask App
         run: |
           cd target-app
+
+          # IMPORTANT: disable reloader otherwise it starts 2 processes
+          export FLASK_ENV=production
+          export PYTHONUNBUFFERED=1
+
           nohup python app.py > flask.log 2>&1 &
           echo $! > flask.pid
 
           echo "Flask PID: $(cat flask.pid)"
-          sleep 6
+          sleep 5
 
-          echo "===== Flask Log ====="
+          echo "===== Flask Log (After Start) ====="
           cat flask.log || true
 
       # ------------------------------
