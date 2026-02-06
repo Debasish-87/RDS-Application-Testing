@@ -7,36 +7,63 @@ import org.openqa.selenium.chrome.ChromeOptions;
 
 public class DriverManager {
 
-    private static ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+    private static final ThreadLocal<WebDriver> driver = new ThreadLocal<>();
 
     public static void initDriver() {
 
-        if (driver.get() != null) return;
+        // अगर already driver initialized है तो return
+        if (driver.get() != null) {
+            return;
+        }
 
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
 
-        // Common args
+        // ============================
+        // Common Chrome Arguments
+        // ============================
         options.addArguments("--disable-notifications");
         options.addArguments("--disable-infobars");
         options.addArguments("--incognito");
-        options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
+        options.addArguments("--disable-popup-blocking");
+        options.addArguments("--disable-extensions");
+        options.addArguments("--remote-allow-origins=*");
 
-        // ✅ Auto CI detection
+        // Remove automation message
+        options.setExperimentalOption("excludeSwitches", new String[]{"enable-automation"});
+        options.setExperimentalOption("useAutomationExtension", false);
+
+        // ============================
+        // CI / Headless Detection
+        // ============================
         boolean isCI = System.getenv("CI") != null;
         boolean isHeadless = System.getProperty("headless", "false").equalsIgnoreCase("true");
 
+        // ============================
+        // Headless / CI Mode
+        // ============================
         if (isCI || isHeadless) {
+
+            // Headless mode
             options.addArguments("--headless=new");
-            options.addArguments("--disable-gpu");
-            options.addArguments("--disable-dev-shm-usage");
+
+            // GitHub Actions Linux stability
             options.addArguments("--no-sandbox");
+            options.addArguments("--disable-dev-shm-usage");
+            options.addArguments("--disable-gpu");
+
+            // Extra stability
             options.addArguments("--window-size=1920,1080");
+
         } else {
+            // Local UI mode
             options.addArguments("--start-maximized");
         }
 
+        // ============================
+        // Create Driver
+        // ============================
         driver.set(new ChromeDriver(options));
     }
 
@@ -45,10 +72,16 @@ public class DriverManager {
     }
 
     public static void quitDriver() {
+
         WebDriver currentDriver = driver.get();
+
         if (currentDriver != null) {
-            currentDriver.quit();
-            driver.remove();
+            try {
+                currentDriver.quit();
+            } catch (Exception ignored) {
+            } finally {
+                driver.remove();
+            }
         }
     }
 }
