@@ -73,7 +73,7 @@ jobs:
           cat flask.log || true
 
       # ------------------------------
-      # 7) Verify Flask App Running (PORT 9457)
+      # 7) Verify Flask App Running
       # ------------------------------
       - name: Verify Flask App
         run: |
@@ -89,11 +89,10 @@ jobs:
 
           echo "===== Running Processes ====="
           ps aux | grep python || true
-
           exit 1
 
       # ------------------------------
-      # 8) Install Chrome Dependencies (Ubuntu 24.04 FIX)
+      # 8) Install Chrome dependencies (Ubuntu 24 fix)
       # ------------------------------
       - name: Install Chrome dependencies
         run: |
@@ -104,7 +103,9 @@ jobs:
             libasound2t64 \
             libatk-bridge2.0-0 \
             libgtk-3-0 \
-            libgbm1
+            libgbm1 \
+            fonts-liberation \
+            xdg-utils
 
       # ------------------------------
       # 9) Setup Chrome
@@ -126,7 +127,7 @@ jobs:
         run: mvn allure:report
 
       # ------------------------------
-      # 12) Upload Allure Report Artifact
+      # 12) Upload Allure Report as Artifact
       # ------------------------------
       - name: Upload Allure Report as Artifact
         if: always()
