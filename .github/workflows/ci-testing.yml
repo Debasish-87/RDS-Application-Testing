@@ -15,15 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ------------------------------
-      # 1) Checkout your testing platform repo
-      # ------------------------------
       - name: Checkout Testing Platform Repo
         uses: actions/checkout@v4
 
-      # ------------------------------
-      # 2) Setup Java + Maven
-      # ------------------------------
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
@@ -31,25 +25,15 @@ jobs:
           java-version: "21"
           cache: "maven"
 
-      # ------------------------------
-      # 3) Setup Python
-      # ------------------------------
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
-      # ------------------------------
-      # 4) Clone Target App Repo
-      # ------------------------------
       - name: Clone Target Big Mart Repo
         run: |
           git clone https://github.com/asutosh-2000/Big-Mart-Sales-Prediction.git target-app
 
-      # ------------------------------
-      # 5) Install dependencies for Flask app
-      # ------------------------------
       - name: Install Flask App Dependencies
         run: |
           cd target-app
@@ -57,45 +41,26 @@ jobs:
           pip install -r requirements.txt || true
           pip install flask joblib pandas numpy scikit-learn xgboost
 
-      # ------------------------------
-      # 6) Start Flask App in Background
-      # ------------------------------
       - name: Start Flask App
         run: |
           cd target-app
           nohup python app.py > flask.log 2>&1 &
-          echo "Flask started..."
           sleep 8
 
-      # ------------------------------
-      # 7) Verify Flask app running
-      # ------------------------------
       - name: Verify Flask App
         run: |
           curl -I http://127.0.0.1:5000 || (echo "Flask not running" && exit 1)
 
-      # ------------------------------
-      # 8) Setup Chrome
-      # ------------------------------
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@v1
 
-      # ------------------------------
-      # 9) Run Selenium Tests
-      # ------------------------------
       - name: Run Automation Tests
         run: mvn clean test
 
-      # ------------------------------
-      # 10) Generate Allure Report
-      # ------------------------------
       - name: Generate Allure Report
         if: always()
         run: mvn allure:report
 
-      # ------------------------------
-      # 11) Upload Allure Report as Artifact
-      # ------------------------------
       - name: Upload Allure Report
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,9 +68,6 @@ jobs:
           name: allure-report
           path: target/site/allure-maven-plugin
 
-      # ------------------------------
-      # 12) Deploy Allure Report to GitHub Pages
-      # ------------------------------
       - name: Deploy Allure Report to GitHub Pages
         if: always()
         uses: peaceiris/actions-gh-pages@v4
