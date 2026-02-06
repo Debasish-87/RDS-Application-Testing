@@ -27,46 +27,81 @@ jobs:
         with:
           python-version: "3.11"
 
+      # ------------------------------
+      # Clone Target App
+      # ------------------------------
       - name: Clone Target Big Mart Repo
         run: |
           git clone https://github.com/asutosh-2000/Big-Mart-Sales-Prediction.git target-app
+          ls -la target-app
 
+      # ------------------------------
+      # Install Flask dependencies
+      # ------------------------------
       - name: Install Flask App Dependencies
         run: |
           cd target-app
           python -m pip install --upgrade pip
           pip install flask joblib pandas numpy scikit-learn xgboost
 
+      # ------------------------------
+      # Start Flask App (Proper way)
+      # ------------------------------
       - name: Start Flask App
         run: |
           cd target-app
-          nohup python app.py > flask.log 2>&1 &
-          sleep 5
-          echo "===== Flask Log ====="
-          cat flask.log
+          export FLASK_RUN_PORT=5000
+          export FLASK_RUN_HOST=127.0.0.1
 
+          # Start in background with logs
+          python app.py > flask.log 2>&1 &
+          echo $! > flask.pid
+
+          sleep 5
+          echo "===== Flask Log (after start) ====="
+          cat flask.log || true
+
+      # ------------------------------
+      # Verify Flask running
+      # ------------------------------
       - name: Verify Flask App
         run: |
-          for i in {1..20}; do
+          for i in {1..30}; do
             echo "Checking Flask... attempt $i"
             curl -I http://127.0.0.1:5000 && exit 0
             sleep 2
           done
+
           echo "❌ Flask did not start"
           echo "===== Flask Log ====="
           cat target-app/flask.log || true
+
+          echo "===== Running Processes ====="
+          ps aux | grep python || true
           exit 1
 
+      # ------------------------------
+      # Setup Chrome
+      # ------------------------------
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@v1
 
+      # ------------------------------
+      # Run Selenium Tests
+      # ------------------------------
       - name: Run Automation Tests
         run: mvn clean test
 
+      # ------------------------------
+      # Generate Allure Report
+      # ------------------------------
       - name: Generate Allure Report
         if: always()
         run: mvn allure:report
 
+      # ------------------------------
+      # Upload Allure Report Artifact
+      # ------------------------------
       - name: Upload Allure Report as Artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -74,6 +109,9 @@ jobs:
           name: allure-report
           path: target/site/allure-maven-plugin
 
+      # ------------------------------
+      # Deploy Allure Report to GitHub Pages
+      # ------------------------------
       - name: Deploy Allure Report to GitHub Pages
         if: always()
         uses: peaceiris/actions-gh-pages@v4
