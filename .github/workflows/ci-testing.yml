@@ -7,6 +7,10 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
+# ✅ IMPORTANT: This fixes 403 Permission denied for gh-pages deploy
+permissions:
+  contents: write
+
 jobs:
   test-and-report:
     runs-on: ubuntu-latest
@@ -38,69 +42,7 @@ jobs:
           python-version: "3.11"
 
       # ------------------------------
-      # 4) Clone Target App Repo
-      # ------------------------------
-      - name: Clone Target Big Mart Repo
-        run: |
-          git clone https://github.com/asutosh-2000/Big-Mart-Sales-Prediction.git target-app
-          echo "===== Target Repo Files ====="
-          ls -la target-app
-
-      # ------------------------------
-      # 5) Install Flask App Dependencies
-      # ------------------------------
-      - name: Install Flask App Dependencies
-        run: |
-          cd target-app
-          python -m pip install --upgrade pip
-          pip install flask joblib pandas numpy scikit-learn xgboost
-
-      # ------------------------------
-      # 6) Start Flask App (PORT 9457)
-      # ------------------------------
-      - name: Start Flask App
-        run: |
-          cd target-app
-
-          # Disable debug reloader / ensure single process
-          export FLASK_ENV=production
-          export PYTHONUNBUFFERED=1
-
-          nohup python app.py > flask.log 2>&1 &
-          echo $! > flask.pid
-
-          echo "Flask PID: $(cat flask.pid)"
-          sleep 5
-
-          echo "===== Flask Log (After Start) ====="
-          cat flask.log || true
-
-      # ------------------------------
-      # 7) Verify Flask App Running (PORT 9457)
-      # ------------------------------
-      - name: Verify Flask App
-        run: |
-          echo "===== Checking Flask Health ====="
-          for i in {1..40}; do
-            echo "Checking Flask... attempt $i"
-            curl -I http://127.0.0.1:9457 && exit 0
-            sleep 2
-          done
-
-          echo "❌ Flask did not start properly"
-          echo "===== Flask Log ====="
-          cat target-app/flask.log || true
-
-          echo "===== Running Processes ====="
-          ps aux | grep python || true
-
-          echo "===== Ports Listening ====="
-          ss -ltnp || true
-
-          exit 1
-
-      # ------------------------------
-      # 8) Install Chrome dependencies (Ubuntu 24 fix)
+      # 4) Install Linux dependencies for Chrome stability
       # ------------------------------
       - name: Install Chrome dependencies
         run: |
@@ -118,20 +60,20 @@ jobs:
             curl
 
       # ------------------------------
-      # 9) Setup Chrome
+      # 5) Setup Chrome
       # ------------------------------
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@v1
 
       # ------------------------------
-      # 10) Print Chrome + Driver versions (DEBUG STRONG)
+      # 6) Debug versions (Super useful)
       # ------------------------------
-      - name: Debug Chrome + Driver Version
+      - name: Debug Chrome + System Versions
         run: |
           echo "===== Chrome Version ====="
           google-chrome --version || true
 
-          echo "===== Chromedriver Version ====="
+          echo "===== Chromedriver Version (if available) ====="
           chromedriver --version || true
 
           echo "===== Java Version ====="
@@ -139,6 +81,83 @@ jobs:
 
           echo "===== Maven Version ====="
           mvn -v || true
+
+          echo "===== Python Version ====="
+          python --version || true
+
+      # ------------------------------
+      # 7) Clone Target App Repo
+      # ------------------------------
+      - name: Clone Target Big Mart Repo
+        run: |
+          git clone https://github.com/asutosh-2000/Big-Mart-Sales-Prediction.git target-app
+          echo "===== Target Repo Files ====="
+          ls -la target-app
+
+      # ------------------------------
+      # 8) Install Flask App Dependencies
+      # ------------------------------
+      - name: Install Flask App Dependencies
+        run: |
+          cd target-app
+          python -m pip install --upgrade pip
+          pip install flask joblib pandas numpy scikit-learn xgboost
+
+      # ------------------------------
+      # 9) Start Flask App (PORT 9457)
+      # ------------------------------
+      - name: Start Flask App
+        run: |
+          cd target-app
+
+          export FLASK_ENV=production
+          export PYTHONUNBUFFERED=1
+
+          # Start flask in background
+          nohup python app.py > flask.log 2>&1 &
+          echo $! > flask.pid
+
+          echo "Flask PID: $(cat flask.pid)"
+          sleep 6
+
+          echo "===== Flask Log (After Start) ====="
+          cat flask.log || true
+
+          echo "===== Running Python Processes ====="
+          ps aux | grep python || true
+
+          echo "===== Ports Listening ====="
+          ss -ltnp || true
+
+      # ------------------------------
+      # 10) Verify Flask App Running (PORT 9457)
+      # ------------------------------
+      - name: Verify Flask App
+        run: |
+          echo "===== Checking Flask Health ====="
+
+          for i in {1..40}; do
+            echo "Checking Flask... attempt $i"
+
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9457 | grep -q "200"; then
+              echo "✅ Flask is UP on port 9457"
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          echo "❌ Flask did not start properly"
+          echo "===== Flask Log ====="
+          cat target-app/flask.log || true
+
+          echo "===== Running Processes ====="
+          ps aux | grep python || true
+
+          echo "===== Ports Listening ====="
+          ss -ltnp || true
+
+          exit 1
 
       # ------------------------------
       # 11) Run Selenium Tests (Headless ON)
@@ -165,7 +184,7 @@ jobs:
           path: target/site/allure-maven-plugin
 
       # ------------------------------
-      # 14) Upload Flask logs + Debug logs (SUPER IMPORTANT)
+      # 14) Upload Flask logs (SUPER IMPORTANT)
       # ------------------------------
       - name: Upload Flask Logs
         if: always()
@@ -183,3 +202,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: target/site/allure-maven-plugin
+          publish_branch: gh-pages
+          force_orphan: true
